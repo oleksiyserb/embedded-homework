@@ -8,11 +8,11 @@ Led::Led(uint8_t pin) : m_pin(pin)
 void Led::init()
 {
     pinMode(m_pin, OUTPUT);
-    setState(State::ON);
+    set(LedState::ON);
 }
 
-void Led::setState(State state)
+void Led::set(LedState state)
 {
     m_state = state;
-    digitalWrite(m_pin, state == State::ON ? HIGH : LOW);
+    digitalWrite(m_pin, state == LedState::ON ? HIGH : LOW);
 }

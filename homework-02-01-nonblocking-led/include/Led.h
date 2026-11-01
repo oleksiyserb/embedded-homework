@@ -4,7 +4,7 @@
 class Led
 {
 public:
-    enum class State
+    enum class LedState
     {
         OFF,
         ON
@@ -13,10 +13,10 @@ public:
     Led(uint8_t pin);
 
     void init();
-    void setState(State state);
+    void set(LedState state);
 
-    State getState() const { return m_state; };
+    LedState getState() const { return m_state; };
 private:
-    State m_state{State::OFF};
+    LedState m_state{LedState::OFF};
     uint8_t m_pin;
 };
