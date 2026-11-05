@@ -1,0 +1,10 @@
+[
+  {"method":"baseline","rc":false,"presses":10,"finalCount":12,"latencyUs":[4,3,3,4,3,20,3,3,3,3,4,10]},
+  {"method":"time-based","rc":false,"presses":10,"finalCount":12,"latencyUs":[5,3,4,4,3,4,3,3,3,3,3,3]},
+  {"method":"state-based","rc":false,"presses":20,"finalCount":20,"latencyUs":[5,5,5,5,4,5,4,5,5,5,5,4,5,4,4,5,5,4,4,4]},
+  {"method":"polling","rc":false,"presses":20,"finalCount":20,"latencyUs":[50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001],"note":"Last latency record truncated."},
+  {"method":"baseline","rc":true,"presses":4,"finalCount":39,"latencyUs":[3,3,86,3,3,79,3,3,72,3,3],"printedCountsWithLatency":[1,2,11,12,13,20,21,22,29,30,31],"note":"Count jumps during printing; final Count 39 has no complete latency record."},
+  {"method":"time-based","rc":true,"presses":10,"finalCount":19,"latencyUs":[5,4,3,3,3,4,3,3,3,3,3,3,3,3,9,3,4,4,3]},
+  {"method":"state-based","rc":true,"presses":10,"finalCount":10,"latencyUs":[4,5,4,4,5,5,4,5,5,5]},
+  {"method":"polling","rc":true,"presses":20,"finalCount":20,"latencyUs":[50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001,50001]}
+]
