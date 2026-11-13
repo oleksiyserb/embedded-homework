@@ -58,6 +58,7 @@ static int64_t lastToggledTimeMs = 0;
 static int64_t lastButtonTimeMs = 0;
 static bool isStateEntered = false;
 static volatile bool isButtonPressed = false;
+static uint8_t lastButtonLevel = 1;
 
 static void set_lights(uint32_t red, uint32_t yellow, uint32_t green)
 {
@@ -77,10 +78,18 @@ static void IRAM_ATTR on_button_interrupt(void* arg)
 {
     (void)arg;
     const int64_t nowMs = esp_timer_get_time() / 1000;
+    const uint8_t level = gpio_get_level(BUTTON_PIN);
 
-    if (nowMs - lastButtonTimeMs > BUTTON_DEBOUNCE_MS) {
+    const bool isLevelChanged = (level != lastButtonLevel);
+    const bool isDebounceOver = (nowMs - lastButtonTimeMs > BUTTON_DEBOUNCE_MS);
+
+    if (isLevelChanged && isDebounceOver) {
         lastButtonTimeMs = nowMs;
-        isButtonPressed = true;
+        lastButtonLevel = level;
+
+        const bool isPressed = (level == 0);
+        if (isPressed)
+            isButtonPressed = true;
     }
 }
 
@@ -99,7 +108,7 @@ void app_main(void)
         .mode         = GPIO_MODE_INPUT,
         .pull_up_en   = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type    = GPIO_INTR_NEGEDGE
+        .intr_type    = GPIO_INTR_ANYEDGE
     };
 
     ESP_ERROR_CHECK(gpio_config(&led_cfg));
@@ -134,9 +143,8 @@ void app_main(void)
                     set_lights(0, 0, 1);
                 }
 
-                if (currentTimeMs - lastToggledTimeMs > GREEN_TIME_MS) {
+                if (currentTimeMs - lastToggledTimeMs > GREEN_TIME_MS)
                     change_state(GREEN_BLINK, currentTimeMs);
-                }
                 break;
             }
             case GREEN_BLINK: {
@@ -149,9 +157,8 @@ void app_main(void)
                 const uint32_t greenLevel = ((currentTimeMs - lastToggledTimeMs) / BLINK_PERIOD_MS) % 2;
                 gpio_set_level(GREEN_LED, greenLevel);
 
-                if (currentTimeMs - lastToggledTimeMs > GREEN_BLINK_TIME_MS) {
+                if (currentTimeMs - lastToggledTimeMs > GREEN_BLINK_TIME_MS)
                     change_state(YELLOW_LIGHT, currentTimeMs);
-                }
                 break;
             }
             case YELLOW_LIGHT: {
@@ -161,9 +168,8 @@ void app_main(void)
                     set_lights(0, 1, 0);
                 }
 
-                if (currentTimeMs - lastToggledTimeMs > YELLOW_TIME_MS) {
+                if (currentTimeMs - lastToggledTimeMs > YELLOW_TIME_MS)
                     change_state(RED_LIGHT, currentTimeMs);
-                }
                 break;
             }
             case RED_LIGHT: {
@@ -173,9 +179,8 @@ void app_main(void)
                     set_lights(1, 0, 0);
                 }
 
-                if (currentTimeMs - lastToggledTimeMs > RED_TIME_MS) {
+                if (currentTimeMs - lastToggledTimeMs > RED_TIME_MS)
                     change_state(RED_YELLOW_LIGHT, currentTimeMs);
-                }
                 break;
             }
             case RED_YELLOW_LIGHT: {
@@ -185,9 +190,8 @@ void app_main(void)
                     set_lights(1, 1, 0);
                 }
 
-                if (currentTimeMs - lastToggledTimeMs > RED_YELLOW_TIME_MS) {
+                if (currentTimeMs - lastToggledTimeMs > RED_YELLOW_TIME_MS)
                     change_state(GREEN_LIGHT, currentTimeMs);
-                }
                 break;
             }
             case YELLOW_BLINK: {
