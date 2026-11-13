@@ -26,8 +26,8 @@
 #include <freertos/FreeRTOS.h>
 #include <inttypes.h>
 #include <driver/gpio.h>
+#include <driver/gptimer.h>
 #include <freertos/task.h>
-#include <esp_timer.h>
 #include <stdbool.h>
 
 #define RED_LED 17
@@ -44,6 +44,9 @@
 
 #define BUTTON_DEBOUNCE_MS 50
 
+#define TIMER_RESOLUTION_HZ 1000000
+#define TIMER_ALARM_COUNT   (TIMER_RESOLUTION_HZ / 1000)
+
 typedef enum {
     GREEN_LIGHT,
     GREEN_BLINK,
@@ -54,11 +57,14 @@ typedef enum {
 } traffic_light_t;
 
 static traffic_light_t currentState = GREEN_LIGHT;
-static int64_t lastToggledTimeMs = 0;
-static int64_t lastButtonTimeMs = 0;
+static uint32_t lastToggledTimeMs = 0;
+static uint32_t lastButtonTimeMs = 0;
 static bool isStateEntered = false;
-static volatile bool isButtonPressed = false;
 static uint8_t lastButtonLevel = 1;
+
+static volatile bool isButtonPressed = false;
+
+static volatile uint32_t millis = 0;
 
 static void set_lights(uint32_t red, uint32_t yellow, uint32_t green)
 {
@@ -67,7 +73,7 @@ static void set_lights(uint32_t red, uint32_t yellow, uint32_t green)
     gpio_set_level(GREEN_LED, green);
 }
 
-static void change_state(traffic_light_t state, int64_t timeMs)
+static void change_state(traffic_light_t state, uint32_t timeMs)
 {
     lastToggledTimeMs = timeMs;
     currentState = state;
@@ -77,7 +83,7 @@ static void change_state(traffic_light_t state, int64_t timeMs)
 static void IRAM_ATTR on_button_interrupt(void* arg)
 {
     (void)arg;
-    const int64_t nowMs = esp_timer_get_time() / 1000;
+    const uint32_t nowMs = millis;
     const uint8_t level = gpio_get_level(BUTTON_PIN);
 
     const bool isLevelChanged = (level != lastButtonLevel);
@@ -93,7 +99,17 @@ static void IRAM_ATTR on_button_interrupt(void* arg)
     }
 }
 
-void app_main(void)
+static bool IRAM_ATTR on_timer_alarm(gptimer_handle_t hTimer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
+{
+    (void)hTimer;
+    (void)edata;
+    (void)user_ctx;
+
+    millis++;
+    return false;
+}
+
+static void init_leds(void)
 {
     gpio_config_t led_cfg = {
         .pin_bit_mask = (1ULL << RED_LED) | (1ULL << YELLOW_LED) | (1ULL << GREEN_LED),
@@ -103,6 +119,11 @@ void app_main(void)
         .intr_type    = GPIO_INTR_DISABLE
     };
 
+    ESP_ERROR_CHECK(gpio_config(&led_cfg));
+}
+
+static void init_button(void)
+{
     gpio_config_t button_cfg = {
         .pin_bit_mask = 1ULL << BUTTON_PIN,
         .mode         = GPIO_MODE_INPUT,
@@ -111,20 +132,51 @@ void app_main(void)
         .intr_type    = GPIO_INTR_ANYEDGE
     };
 
-    ESP_ERROR_CHECK(gpio_config(&led_cfg));
     ESP_ERROR_CHECK(gpio_config(&button_cfg));
     ESP_ERROR_CHECK(gpio_install_isr_service(0));
     ESP_ERROR_CHECK(gpio_isr_handler_add(BUTTON_PIN, on_button_interrupt, NULL));
+}
+
+static void init_timer(void)
+{
+    gptimer_handle_t timer = NULL;
+
+    gptimer_config_t timer_config = {
+        .clk_src = GPTIMER_CLK_SRC_DEFAULT,
+        .direction = GPTIMER_COUNT_UP,
+        .resolution_hz = TIMER_RESOLUTION_HZ
+    };
+    gptimer_alarm_config_t alarm_config = {
+        .alarm_count = TIMER_ALARM_COUNT,
+        .reload_count = 0,
+        .flags.auto_reload_on_alarm = true
+    };
+    gptimer_event_callbacks_t cbs = {
+        .on_alarm = on_timer_alarm
+    };
+
+    ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &timer));
+    ESP_ERROR_CHECK(gptimer_register_event_callbacks(timer, &cbs, NULL));
+    ESP_ERROR_CHECK(gptimer_set_alarm_action(timer, &alarm_config));
+    ESP_ERROR_CHECK(gptimer_enable(timer));
+    ESP_ERROR_CHECK(gptimer_start(timer));
+}
+
+void app_main(void)
+{
+    init_leds();
+    init_button();
+    init_timer();
 
     set_lights(0, 0, 0);
 
-    lastToggledTimeMs = esp_timer_get_time() / 1000;
+    lastToggledTimeMs = millis;
 
     while(1)
     {
         vTaskDelay(1);
 
-        const int64_t currentTimeMs = esp_timer_get_time() / 1000;
+        const uint32_t currentTimeMs = millis;
 
         if (isButtonPressed) {
             isButtonPressed = false;
